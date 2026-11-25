@@ -80,7 +80,44 @@ function avatar(ime) {
 }
 
 // ---------- PRIJAVA ----------
+// Messenger, Facebook, Instagram ... imajo vgrajen brskalnik, kjer Google prijava ne deluje
+function vgrajenBrskalnik() {
+  const ua = navigator.userAgent || ''
+  return /FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram|Line\/|MicroMessenger|; wv\)/i.test(ua)
+}
+
 function prikaziPrijavo() {
+  const android = /Android/i.test(navigator.userAgent)
+  const naslov = location.host + location.pathname
+
+  if (vgrajenBrskalnik()) {
+    app.innerHTML = `
+      <div class="prijava">
+        <img class="logo" src="/zoga.svg" alt="">
+        <h1>Odbojka</h1>
+        <div class="kartica opozorilo-brskalnik">
+          <p><b>Stran je odprta v Messengerju.</b></p>
+          <p>Prijava z Googlom tukaj ne deluje. Odpri stran v pravem brskalniku:</p>
+          ${android
+            ? `<a class="gumb gumb-glavni" href="intent://${naslov}#Intent;scheme=https;package=com.android.chrome;end">Odpri v Chromu</a>
+               <p class="opomba">Če gumb ne deluje: zgoraj desno tapni <b>⋮</b> in izberi <b>Odpri v brskalniku</b>.</p>`
+            : `<p class="opomba">Tapni <b>⋯</b> (spodaj ali zgoraj desno) in izberi <b>Odpri v Safariju</b> / <b>Odpri v brskalniku</b>.</p>`}
+          <button class="gumb gumb-sekundarni" id="kopiraj">Kopiraj povezavo</button>
+        </div>
+        ${gumbPravila}
+      </div>
+    `
+    document.querySelector('#kopiraj').onclick = async (e) => {
+      try {
+        await navigator.clipboard.writeText('https://' + naslov)
+        e.target.textContent = 'Kopirano ✓ – prilepi v Chrome ali Safari'
+      } catch {
+        e.target.textContent = 'https://' + naslov
+      }
+    }
+    return
+  }
+
   app.innerHTML = `
     <div class="prijava">
       <img class="logo" src="/zoga.svg" alt="">

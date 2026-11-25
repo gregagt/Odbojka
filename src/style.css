@@ -481,3 +481,13 @@ a.gumb { display: block; text-align: center; text-decoration: none; }
   background: rgba(255, 99, 99, 0.1);
   border: 1px solid rgba(255, 99, 99, 0.3);
 }
+
+.opozorilo-brskalnik {
+  display: grid;
+  gap: 12px;
+  max-width: 360px;
+  margin-top: 8px;
+  text-align: left;
+  border-color: rgba(255, 176, 32, 0.5);
+}
+.opozorilo-brskalnik .opomba { margin-top: 0; }
