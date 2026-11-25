@@ -6,6 +6,9 @@ import {
 } from 'firebase/firestore'
 
 const app = document.querySelector('#app')
+const PRAVILA_URL = 'https://sport-rodica.splet.arnes.si/igre-z-zogo/odbojka/'
+const ikonaPravila = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg>`
+const gumbPravila = `<a class="gumb-pravila" href="${PRAVILA_URL}" target="_blank" rel="noopener">${ikonaPravila}<span>Pravila</span></a>`
 const provider = new GoogleAuthProvider()
 let ustaviPoslusanje = null
 
@@ -71,6 +74,7 @@ function prikaziPrijavo() {
       <p class="podnaslov">Vsak četrtek ob 20.30<br>Dvorana Vižmarje-Brod</p>
       <button class="gumb gumb-google" id="prijava">Prijava z Googlom</button>
       <p class="napaka" id="napaka"></p>
+      ${gumbPravila}
     </div>
   `
   document.querySelector('#prijava').onclick = async () => {
@@ -136,6 +140,7 @@ function render() {
     <header class="glava">
       <div class="znamka"><img src="/zoga.svg" alt=""> Odbojka</div>
       <div class="glava-desno">
+        ${gumbPravila}
         ${avatar(s.jaz.ime)}
         <button class="gumb-tekst" data-akcija="odjava">Odjava</button>
       </div>

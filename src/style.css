@@ -59,6 +59,23 @@ input { font: inherit; }
 }
 .gumb-tekst:hover { color: var(--tekst); background: var(--rob); }
 
+.gumb-pravila {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--poudarek);
+  background: rgba(255, 176, 32, 0.1);
+  border: 1px solid rgba(255, 176, 32, 0.25);
+  margin-right: 4px;
+}
+.gumb-pravila:hover { background: rgba(255, 176, 32, 0.18); }
+@media (max-width: 360px) { .glava .gumb-pravila span { display: none; } }
+
 /* ---------- Avatar ---------- */
 .avatar {
   width: 40px;
@@ -202,6 +219,20 @@ input { font: inherit; }
 .opomba { margin-top: 12px; font-size: 14px; color: var(--siv); }
 .opomba b { color: var(--tekst); }
 .opomba-manjka { color: var(--poudarek); }
+.moj-obrazec { margin-top: 10px; }
+.moja-zamenjava {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--modra);
+  background: rgba(92, 184, 255, 0.1);
+}
+.moja-zamenjava b { color: var(--tekst); }
 
 /* ---------- Seznam igralcev ---------- */
 .naslov-sekcije {
