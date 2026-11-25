@@ -192,6 +192,24 @@ input { font: inherit; }
   background: linear-gradient(90deg, #22b866, var(--zelena));
   transition: width 0.4s ease;
 }
+.povzetek {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.p-da { color: var(--zelena); }
+.p-ne { color: var(--rdeca); }
+.p-brez { color: var(--siv); }
+
+.cakam-odgovor {
+  border-color: rgba(255, 176, 32, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 176, 32, 0.1);
+}
+.cakam-odgovor .moj-naslov { color: var(--poudarek); }
+
 .napredek-manjka div { background: linear-gradient(90deg, var(--poudarek-temen), var(--poudarek)); }
 
 /* ---------- Moj status ---------- */
@@ -275,6 +293,8 @@ input { font: inherit; }
 }
 .igralec.manjka .igralec-status { color: var(--rdeca); }
 .igralec.neaktiven { opacity: 0.45; }
+.igralec.brez .igralec-status { color: var(--siv); font-style: italic; }
+.igralec.brez .avatar { filter: grayscale(0.7) brightness(0.8); }
 
 .pika {
   width: 10px;
@@ -283,6 +303,11 @@ input { font: inherit; }
   border-radius: 50%;
   background: var(--zelena);
   box-shadow: 0 0 0 4px rgba(47, 212, 122, 0.15);
+}
+.pika-brez {
+  background: transparent;
+  border: 2px solid #4a5670;
+  box-shadow: none;
 }
 
 .oznaka {

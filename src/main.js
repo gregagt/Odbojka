@@ -2,7 +2,7 @@ import './style.css'
 import { auth, db } from './firebase.js'
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
 import {
-  doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, onSnapshot
+  doc, getDoc, getDocs, setDoc, updateDoc, collection, onSnapshot
 } from 'firebase/firestore'
 
 const app = document.querySelector('#app')
@@ -165,22 +165,25 @@ function render() {
 }
 
 function stevec() {
-  let pride = 0
+  let pride = 0, nePride = 0, brez = 0
   for (const i of s.igralci) {
     const p = s.prisotnost[i.email]
-    if (p?.status !== 'ne_pride' || p?.namestnik) pride++
+    if (p?.status === 'pride' || (p?.status === 'ne_pride' && p.namestnik)) pride++
+    else if (p?.status === 'ne_pride') nePride++
+    else brez++
   }
-  return { pride, vseh: s.igralci.length }
+  return { pride, nePride, brez, vseh: s.igralci.length }
 }
 
 function htmlTermin() {
   if (s.nalagam) return '<div class="nalagam"><span class="vrtavka"></span></div>'
 
-  const { pride, vseh } = stevec()
+  const { pride, nePride, brez, vseh } = stevec()
   const manjka = vseh - pride
   const odstotek = vseh ? Math.round((pride / vseh) * 100) : 0
   const moj = s.prisotnost[s.jaz.email]
   const jazNePridem = moj?.status === 'ne_pride'
+  const jazPridem = moj?.status === 'pride'
 
   let opomba = ''
   if (jazNePridem && moj.namestnik) {
@@ -210,12 +213,17 @@ function htmlTermin() {
         </div>
       </div>
       <div class="napredek ${manjka ? 'napredek-manjka' : ''}"><div style="width:${odstotek}%"></div></div>
+      <div class="povzetek">
+        <span class="p-da">✓ ${pride} pride</span>
+        <span class="p-ne">✕ ${nePride} ne more</span>
+        <span class="p-brez">? ${brez} brez odgovora</span>
+      </div>
     </section>
 
-    <section class="kartica">
-      <div class="moj-naslov">Ali prideš v četrtek?</div>
+    <section class="kartica ${!moj ? 'cakam-odgovor' : ''}">
+      <div class="moj-naslov">${!moj ? 'Ali prideš v četrtek? Potrdi prihod.' : 'Ali prideš v četrtek?'}</div>
       <div class="preklop">
-        <button class="${!jazNePridem ? 'izbran da' : ''}" data-akcija="pridem">✓ Pridem</button>
+        <button class="${jazPridem ? 'izbran da' : ''}" data-akcija="pridem">✓ Pridem</button>
         <button class="${jazNePridem ? 'izbran ne' : ''}" data-akcija="nepridem">✕ Ne morem</button>
       </div>
       ${opomba}
@@ -230,18 +238,21 @@ function htmlTermin() {
 
 function htmlIgralec(i) {
   const p = s.prisotnost[i.email]
+  const pride = p?.status === 'pride'
   const nePride = p?.status === 'ne_pride'
   const namestnik = p?.namestnik || ''
-  const razred = !nePride ? 'pride' : namestnik ? 'zamenjava' : 'manjka'
+  const razred = pride ? 'pride' : !nePride ? 'brez' : namestnik ? 'zamenjava' : 'manjka'
   const jeJaz = i.email === s.jaz.email
 
   let status
-  if (!nePride) status = 'Pride'
+  if (pride) status = 'Pride'
+  else if (!nePride) status = 'Še ni potrdil'
   else if (namestnik) status = `Namesto pride <b>${varno(namestnik)}</b>`
   else status = 'Ne pride · iščemo zamenjavo'
 
   let desno
-  if (!nePride) desno = '<span class="pika"></span>'
+  if (pride) desno = '<span class="pika"></span>'
+  else if (!nePride) desno = '<span class="pika pika-brez"></span>'
   else if (namestnik) desno = `<button class="gumb-majhen sekundarni" data-akcija="brisiZamenjavo" data-email="${i.email}">Odstrani</button>`
   else if (s.odprtaZamenjava === i.email) desno = ''
   else desno = `<button class="gumb-majhen" data-akcija="odpriZamenjavo" data-email="${i.email}">+ Zamenjava</button>`
@@ -316,9 +327,9 @@ app.addEventListener('click', async (e) => {
       await setDoc(ref(s.jaz.email), { status: 'ne_pride', namestnik: '', ...zdaj })
     } else if (akcija === 'pridem') {
       const moj = s.prisotnost[s.jaz.email]
-      if (!moj) return
-      if (moj.namestnik && !confirm(`Zamenjava ${moj.namestnik} bo odstranjena. Nadaljujem?`)) return
-      await deleteDoc(ref(s.jaz.email))
+      if (moj?.status === 'pride') return
+      if (moj?.namestnik && !confirm(`Zamenjava ${moj.namestnik} bo odstranjena. Nadaljujem?`)) return
+      await setDoc(ref(s.jaz.email), { status: 'pride', namestnik: '', ...zdaj })
     } else if (akcija === 'odpriZamenjavo') {
       s.odprtaZamenjava = email
       render()
