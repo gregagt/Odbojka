@@ -33,7 +33,7 @@ body {
 #app {
   max-width: 520px;
   margin: 0 auto;
-  padding: 16px 16px 48px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(48px + env(safe-area-inset-bottom));
 }
 
 button { font: inherit; cursor: pointer; border: 0; }
@@ -46,7 +46,8 @@ input { font: inherit; }
   justify-content: space-between;
   margin-bottom: 18px;
 }
-.znamka { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.znamka { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.znamka img { width: 28px; height: 28px; }
 .glava-desno { display: flex; align-items: center; gap: 6px; }
 
 .gumb-tekst {
@@ -116,12 +117,14 @@ input { font: inherit; }
     linear-gradient(180deg, var(--kartica-2), var(--kartica));
 }
 .junak::after {
-  content: '🏐';
+  content: '';
   position: absolute;
-  right: -18px;
-  top: -14px;
-  font-size: 110px;
-  opacity: 0.07;
+  right: -30px;
+  top: -30px;
+  width: 140px;
+  height: 140px;
+  background: url('/zoga.svg') center / contain no-repeat;
+  opacity: 0.12;
   transform: rotate(-15deg);
   pointer-events: none;
 }
@@ -337,7 +340,8 @@ input:focus { border-color: var(--poudarek); box-shadow: 0 0 0 3px rgba(255, 176
 .prijava .gumb { margin-top: 16px; }
 
 .logo {
-  font-size: 76px;
+  width: 96px;
+  height: 96px;
   animation: poskok 2.4s ease-in-out infinite;
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.45));
 }

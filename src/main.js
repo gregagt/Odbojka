@@ -66,7 +66,7 @@ function avatar(ime) {
 function prikaziPrijavo() {
   app.innerHTML = `
     <div class="prijava">
-      <div class="logo">🏐</div>
+      <img class="logo" src="/zoga.svg" alt="">
       <h1>Odbojka</h1>
       <p class="podnaslov">Vsak četrtek ob 20.30<br>Dvorana Vižmarje-Brod</p>
       <button class="gumb gumb-google" id="prijava">Prijava z Googlom</button>
@@ -126,14 +126,15 @@ async function naloziIgralce() {
 
 // ---------- IZRIS ----------
 function render() {
-  // ohrani vneseno besedilo, če je odprt vnos zamenjave
-  const vnos = app.querySelector('.zamenjava-obrazec input')
-  const besedilo = vnos ? vnos.value : ''
+  // ohrani vneseno besedilo in fokus, ko se stran ponovno izriše
+  const vrednosti = {}
+  app.querySelectorAll('input[id]').forEach(el => { vrednosti[el.id] = el.value })
+  const fokus = document.activeElement?.id
 
   const jeAdmin = s.jaz.vloga === 'admin'
   app.innerHTML = `
     <header class="glava">
-      <div class="znamka"><span>🏐</span> Odbojka</div>
+      <div class="znamka"><img src="/zoga.svg" alt=""> Odbojka</div>
       <div class="glava-desno">
         ${avatar(s.jaz.ime)}
         <button class="gumb-tekst" data-akcija="odjava">Odjava</button>
@@ -149,11 +150,13 @@ function render() {
     </main>
   `
 
-  const nov = app.querySelector('.zamenjava-obrazec input')
-  if (nov) {
-    nov.value = besedilo
-    nov.focus()
+  for (const [id, v] of Object.entries(vrednosti)) {
+    const el = document.getElementById(id)
+    if (el) el.value = v
   }
+  const zaFokus = (fokus && document.getElementById(fokus)) ||
+    (s.odprtaZamenjava && document.getElementById('zam-' + s.odprtaZamenjava))
+  if (zaFokus && zaFokus.tagName === 'INPUT') zaFokus.focus()
 }
 
 function stevec() {
@@ -175,10 +178,19 @@ function htmlTermin() {
   const jazNePridem = moj?.status === 'ne_pride'
 
   let opomba = ''
-  if (jazNePridem) {
-    opomba = moj.namestnik
-      ? `<p class="opomba">Namesto tebe pride <b>${varno(moj.namestnik)}</b>.</p>`
-      : `<p class="opomba opomba-manjka">Poišči zamenjavo in jo vpiši na seznamu spodaj.</p>`
+  if (jazNePridem && moj.namestnik) {
+    opomba = `
+      <div class="moja-zamenjava">
+        <span>Namesto tebe pride <b>${varno(moj.namestnik)}</b></span>
+        <button class="gumb-majhen sekundarni" data-akcija="brisiZamenjavo" data-email="${s.jaz.email}">Odstrani</button>
+      </div>`
+  } else if (jazNePridem) {
+    opomba = `
+      <p class="opomba opomba-manjka">Imaš zamenjavo? Vpiši jo tukaj:</p>
+      <form class="zamenjava-obrazec moj-obrazec" data-email="${s.jaz.email}">
+        <input id="moja-zamenjava" name="ime" placeholder="Ime zamenjave" autocomplete="off">
+        <button class="gumb-majhen" type="submit">Shrani</button>
+      </form>`
   }
 
   return `
@@ -231,7 +243,7 @@ function htmlIgralec(i) {
 
   const obrazec = s.odprtaZamenjava === i.email ? `
     <form class="zamenjava-obrazec" data-email="${i.email}">
-      <input name="ime" placeholder="Ime zamenjave" autocomplete="off">
+      <input id="zam-${i.email}" name="ime" placeholder="Ime zamenjave" autocomplete="off">
       <button class="gumb-majhen" type="submit">Shrani</button>
       <button class="gumb-majhen sekundarni" type="button" data-akcija="zapriZamenjavo">✕</button>
     </form>` : ''
