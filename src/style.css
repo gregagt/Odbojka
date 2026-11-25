@@ -491,3 +491,33 @@ a.gumb { display: block; text-align: center; text-decoration: none; }
   border-color: rgba(255, 176, 32, 0.5);
 }
 .opozorilo-brskalnik .opomba { margin-top: 0; }
+
+/* ---------- Odpoved ---------- */
+.odpade-pasica {
+  margin-bottom: 14px;
+  padding: 18px;
+  border-radius: var(--radij);
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(135deg, #e53935, #b71c1c);
+  box-shadow: 0 8px 24px rgba(229, 57, 53, 0.35);
+}
+.odpade-naslov { font-size: 22px; font-weight: 800; letter-spacing: 0.04em; }
+.odpade-opis { margin-top: 4px; font-size: 14px; color: #ffd6d6; }
+.odpade-preklic {
+  margin-top: 12px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+.odpadlo { opacity: 0.45; pointer-events: none; filter: grayscale(0.5); }
+.gumb-rdec { background: #e53935; color: #fff; }
+.gumb-rdec:hover { background: #c62828; }
+.kartica-odpoved { border-color: rgba(255, 99, 99, 0.3); }
+.kartica-odpoved .sms-besedilo { margin-top: 12px; }
+.opomba-odpoved { color: var(--rdeca); }
+.opomba-odpoved b { color: var(--rdeca); }

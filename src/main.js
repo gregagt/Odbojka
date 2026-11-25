@@ -11,6 +11,7 @@ const ikonaPravila = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none
 const gumbPravila = `<a class="gumb-pravila" href="${PRAVILA_URL}" target="_blank" rel="noopener">${ikonaPravila}<span>Pravila</span></a>`
 const provider = new GoogleAuthProvider()
 let ustaviPoslusanje = null
+let ustaviTermin = null
 
 // Stanje aplikacije
 const s = {
@@ -26,10 +27,13 @@ const s = {
   urejam: null,           // email igralca, ki ga admin ureja
   telefoni: {},           // email -> telefonska številka (samo admin)
   smsBesedilo: '',
+  smsOdpoved: '',
+  termin: {},             // podatki termina (npr. odpade)
   napakaObvestila: ''
 }
 
 const PRIVZETO_SMS = 'Hej! 🏐 Ne pozabi potrditi prihoda na odbojko v četrtek ob 20.30: https://odbojka-brod.pages.dev'
+const PRIVZETO_ODPOVED = 'Pozor! 🏐 Odbojka ta četrtek ODPADE. Lep pozdrav!'
 
 // ---------- POMOŽNO ----------
 function varno(t) {
@@ -169,6 +173,11 @@ async function zacniAplikacijo(user, igralec) {
     s.nalagam = false
     render()
   })
+
+  ustaviTermin = onSnapshot(doc(db, 'termini', s.id), (snap) => {
+    s.termin = snap.exists() ? snap.data() : {}
+    render()
+  })
 }
 
 async function naloziIgralce() {
@@ -187,9 +196,11 @@ async function naloziObvestila() {
     snap.forEach(d => { s.telefoni[d.id] = d.data().telefon || '' })
     const nast = await getDoc(doc(db, 'nastavitve', 'obvestila'))
     s.smsBesedilo = (nast.exists() && nast.data().smsBesedilo) || PRIVZETO_SMS
+    s.smsOdpoved = (nast.exists() && nast.data().smsOdpoved) || PRIVZETO_ODPOVED
     s.napakaObvestila = ''
   } catch (e) {
     s.smsBesedilo = s.smsBesedilo || PRIVZETO_SMS
+    s.smsOdpoved = s.smsOdpoved || PRIVZETO_ODPOVED
     s.napakaObvestila = 'Telefonskih številk ni mogoče prebrati (' + e.code + '). Preveri, ali so objavljena nova pravila v Firestore.'
   }
 }
@@ -211,9 +222,10 @@ async function shraniTelefon(email, telefon) {
 }
 
 function smsHref(komu) {
-  const seznam = komu === 'vsi' ? s.igralci : s.igralci.filter(i => !s.prisotnost[i.email])
+  const seznam = komu === 'neodgovorjeni' ? s.igralci.filter(i => !s.prisotnost[i.email]) : s.igralci
   const stevilke = seznam.map(i => s.telefoni[i.email]).filter(Boolean)
-  return stevilke.length ? smsPovezava(stevilke, s.smsBesedilo) : '#'
+  const besedilo = komu === 'odpoved' ? s.smsOdpoved : s.smsBesedilo
+  return stevilke.length ? smsPovezava(stevilke, besedilo) : '#'
 }
 
 function smsPovezava(stevilke, besedilo) {
@@ -302,7 +314,18 @@ function htmlTermin() {
       </form>`
   }
 
+  const odpade = s.termin?.odpade
+  const jeAdmin = s.jaz.vloga === 'admin'
+  const pasica = odpade ? `
+    <section class="odpade-pasica">
+      <div class="odpade-naslov">✕ TERMIN ODPADE</div>
+      <div class="odpade-opis">${lepDatum(s.cetrtek)} odbojke ni.${s.termin.odpovedal ? ` Odpovedal: ${varno(s.termin.odpovedal)}.` : ''}</div>
+      ${jeAdmin ? '<button class="odpade-preklic" data-akcija="prekliciOdpoved">Prekliči odpoved</button>' : ''}
+    </section>` : ''
+
   return `
+    ${pasica}
+    <div class="${odpade ? 'odpadlo' : ''}">
     <section class="kartica junak">
       <div class="junak-oznaka">Naslednji termin</div>
       <div class="junak-datum">${lepDatum(s.cetrtek)}</div>
@@ -334,6 +357,7 @@ function htmlTermin() {
     <ul class="seznam">
       ${s.igralci.map(htmlIgralec).join('')}
     </ul>
+    </div>
   `
 }
 
@@ -414,6 +438,25 @@ function htmlObvestila() {
       </div>
       <p class="opomba">Gumb odpre aplikacijo za SMS na tvojem telefonu z vsemi prejemniki in besedilom. Pošlješ sam. Deluje samo na telefonu.</p>
       ${neodgovorjeni.length ? `<p class="opomba">Še niso odgovorili: ${neodgovorjeni.map(i => varno(i.ime)).join(', ')}</p>` : ''}
+    </section>
+
+    <section class="kartica kartica-odpoved">
+      <h2>Odpoved termina</h2>
+      ${s.termin?.odpade ? `
+        <p class="opomba opomba-odpoved">Termin ${lepDatum(s.cetrtek).toLowerCase()} je označen kot <b>odpovedan</b>. Igralci to vidijo v aplikaciji.</p>
+        <textarea id="sms-odpoved" class="sms-besedilo" rows="3">${varno(s.smsOdpoved)}</textarea>
+        <div class="sms-gumbi">
+          <a class="gumb gumb-rdec sms-gumb ${nVsi ? '' : 'onemogocen'}" data-komu="odpoved" href="${smsHref('odpoved')}">
+            📱 Pošlji SMS o odpovedi vsem (${nVsi})
+          </a>
+          <button class="gumb gumb-sekundarni" data-akcija="prekliciOdpoved">Prekliči odpoved</button>
+          <button class="povezava" data-akcija="shraniBesedilo">Shrani besedilo kot privzeto</button>
+        </div>` : `
+        <p class="opomba">Če termin ${lepDatum(s.cetrtek).toLowerCase()} odpade, ga označi kot odpovedanega. Vsi igralci bodo v aplikaciji videli rdeče obvestilo, nato pa lahko pošlješ še SMS vsem.</p>
+        <textarea id="sms-odpoved" class="sms-besedilo" rows="3">${varno(s.smsOdpoved)}</textarea>
+        <div class="sms-gumbi">
+          <button class="gumb gumb-rdec" data-akcija="odpovej">✕ Odpovej termin</button>
+        </div>`}
     </section>
 
     <p class="opomba">Telefonske številke imaš vpisane ${nVsi} od ${s.igralci.length}. Dodaš ali popraviš jih v zavihku <b>Igralci</b> (gumb Uredi).</p>
@@ -515,8 +558,21 @@ app.addEventListener('click', async (e) => {
       await updateDoc(ref(email), { namestnik: '', ...zdaj })
     } else if (akcija === 'shraniBesedilo') {
       s.smsBesedilo = app.querySelector('#sms-besedilo').value.trim()
-      await setDoc(doc(db, 'nastavitve', 'obvestila'), { smsBesedilo: s.smsBesedilo }, { merge: true })
+      s.smsOdpoved = app.querySelector('#sms-odpoved')?.value.trim() || s.smsOdpoved
+      await setDoc(doc(db, 'nastavitve', 'obvestila'),
+        { smsBesedilo: s.smsBesedilo, smsOdpoved: s.smsOdpoved }, { merge: true })
       alert('Besedilo shranjeno.')
+    } else if (akcija === 'odpovej') {
+      const dan = lepDatum(s.cetrtek).toLowerCase()
+      if (!confirm(`Res odpoveš termin (${dan})?`)) return
+      if (!confirm('Vsi igralci bodo videli, da termin ODPADE. Si prepričan, da to ni pomota?')) return
+      s.smsOdpoved = app.querySelector('#sms-odpoved')?.value.trim() || s.smsOdpoved
+      await setDoc(doc(db, 'termini', s.id),
+        { odpade: true, odpovedal: s.jaz.ime, odpovedanoCas: new Date() }, { merge: true })
+    } else if (akcija === 'prekliciOdpoved') {
+      if (!confirm('Prekličem odpoved? Termin bo spet veljal.')) return
+      await setDoc(doc(db, 'termini', s.id),
+        { odpade: false, odpovedal: '', odpovedanoCas: null }, { merge: true })
     } else if (akcija === 'urediIgralca') {
       s.urejam = email
       render()
@@ -536,8 +592,9 @@ app.addEventListener('click', async (e) => {
 
 // sproti posodobi SMS povezave, ko se spreminja besedilo
 app.addEventListener('input', (e) => {
-  if (e.target.id !== 'sms-besedilo') return
-  s.smsBesedilo = e.target.value
+  if (e.target.id === 'sms-odpoved') s.smsOdpoved = e.target.value
+  else if (e.target.id === 'sms-besedilo') s.smsBesedilo = e.target.value
+  else return
   app.querySelectorAll('.sms-gumb').forEach(a => { a.href = smsHref(a.dataset.komu) })
 })
 
@@ -612,6 +669,10 @@ app.addEventListener('submit', async (e) => {
 
 // ---------- ZAGON ----------
 onAuthStateChanged(auth, async (user) => {
+  if (ustaviTermin) {
+    ustaviTermin()
+    ustaviTermin = null
+  }
   if (ustaviPoslusanje) {
     ustaviPoslusanje()
     ustaviPoslusanje = null
