@@ -23,8 +23,13 @@ const s = {
   prisotnost: {},
   nalagam: true,
   odprtaZamenjava: null,  // email igralca, kjer je odprt vnos zamenjave
-  urejam: null            // email igralca, ki ga admin ureja
+  urejam: null,           // email igralca, ki ga admin ureja
+  telefoni: {},           // email -> telefonska številka (samo admin)
+  smsBesedilo: '',
+  napakaObvestila: ''
 }
+
+const PRIVZETO_SMS = 'Hej! 🏐 Ne pozabi potrditi prihoda na odbojko v četrtek ob 20.30: https://odbojka-brod.pages.dev'
 
 // ---------- POMOŽNO ----------
 function varno(t) {
@@ -135,6 +140,48 @@ async function naloziIgralce() {
     .map(d => ({ email: d.id, ...d.data() }))
     .sort((a, b) => a.ime.localeCompare(b.ime, 'sl'))
   s.igralci = s.vsiIgralci.filter(i => i.aktiven)
+  if (s.jaz?.vloga === 'admin') await naloziObvestila()
+}
+
+async function naloziObvestila() {
+  try {
+    const snap = await getDocs(collection(db, 'telefoni'))
+    s.telefoni = {}
+    snap.forEach(d => { s.telefoni[d.id] = d.data().telefon || '' })
+    const nast = await getDoc(doc(db, 'nastavitve', 'obvestila'))
+    s.smsBesedilo = (nast.exists() && nast.data().smsBesedilo) || PRIVZETO_SMS
+    s.napakaObvestila = ''
+  } catch (e) {
+    s.smsBesedilo = s.smsBesedilo || PRIVZETO_SMS
+    s.napakaObvestila = 'Telefonskih številk ni mogoče prebrati (' + e.code + '). Preveri, ali so objavljena nova pravila v Firestore.'
+  }
+}
+
+function urediTelefon(t) {
+  let n = String(t || '').replace(/[^\d+]/g, '')
+  if (!n) return ''
+  if (n.startsWith('00')) n = '+' + n.slice(2)
+  else if (n.startsWith('0')) n = '+386' + n.slice(1)
+  else if (!n.startsWith('+')) n = '+386' + n
+  return n
+}
+
+async function shraniTelefon(email, telefon) {
+  if (telefon === (s.telefoni[email] || '')) return
+  if (telefon) await setDoc(doc(db, 'telefoni', email), { telefon })
+  else await deleteDoc(doc(db, 'telefoni', email))
+  s.telefoni[email] = telefon
+}
+
+function smsPovezava(stevilke, besedilo) {
+  const telo = encodeURIComponent(besedilo)
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  if (ios) {
+    return stevilke.length > 1
+      ? `sms:/open?addresses=${stevilke.join(',')}&body=${telo}`
+      : `sms:${stevilke[0]}&body=${telo}`
+  }
+  return `sms:${stevilke.join(',')}?body=${telo}`
 }
 
 // ---------- IZRIS ----------
@@ -158,9 +205,11 @@ function render() {
       <nav class="zavihki">
         <button class="${s.pogled === 'termin' ? 'aktiven' : ''}" data-akcija="pogled" data-pogled="termin">Termin</button>
         <button class="${s.pogled === 'igralci' ? 'aktiven' : ''}" data-akcija="pogled" data-pogled="igralci">Igralci</button>
+        <button class="${s.pogled === 'obvestila' ? 'aktiven' : ''}" data-akcija="pogled" data-pogled="obvestila">Obvestila</button>
       </nav>` : ''}
     <main>
-      ${s.pogled === 'igralci' && jeAdmin ? htmlIgralci() : htmlTermin()}
+      ${!jeAdmin || s.pogled === 'termin' ? htmlTermin()
+        : s.pogled === 'igralci' ? htmlIgralci() : htmlObvestila()}
     </main>
   `
 
@@ -300,6 +349,34 @@ function htmlIgralec(i) {
   `
 }
 
+function htmlObvestila() {
+  const neodgovorjeni = s.igralci.filter(i => !s.prisotnost[i.email])
+  const sTel = (seznam) => seznam.filter(i => s.telefoni[i.email])
+  const nNeodg = sTel(neodgovorjeni).length
+  const nVsi = sTel(s.igralci).length
+
+  return `
+    ${s.napakaObvestila ? `<p class="opozorilo">${varno(s.napakaObvestila)}</p>` : ''}
+    <section class="kartica">
+      <h2>SMS opomnik</h2>
+      <textarea id="sms-besedilo" class="sms-besedilo" rows="4">${varno(s.smsBesedilo)}</textarea>
+      <div class="sms-gumbi">
+        <button class="gumb gumb-glavni" data-akcija="sms" data-komu="neodgovorjeni" ${nNeodg ? '' : 'disabled'}>
+          📱 SMS neprijavljenim (${nNeodg})
+        </button>
+        <button class="gumb gumb-sekundarni" data-akcija="sms" data-komu="vsi" ${nVsi ? '' : 'disabled'}>
+          📱 SMS vsem (${nVsi})
+        </button>
+        <button class="povezava" data-akcija="shraniBesedilo">Shrani besedilo kot privzeto</button>
+      </div>
+      <p class="opomba">Gumb odpre aplikacijo za SMS na tvojem telefonu z vsemi prejemniki in besedilom. Pošlješ sam. Deluje samo na telefonu.</p>
+      ${neodgovorjeni.length ? `<p class="opomba">Še niso odgovorili: ${neodgovorjeni.map(i => varno(i.ime)).join(', ')}</p>` : ''}
+    </section>
+
+    <p class="opomba">Telefonske številke imaš vpisane ${nVsi} od ${s.igralci.length}. Dodaš ali popraviš jih v zavihku <b>Igralci</b> (gumb Uredi).</p>
+  `
+}
+
 function htmlIgralci() {
   const aktivnih = s.vsiIgralci.filter(i => i.aktiven).length
   return `
@@ -308,6 +385,7 @@ function htmlIgralci() {
       <form id="dodajObrazec" class="obrazec">
         <input name="ime" placeholder="Ime in priimek" autocomplete="off">
         <input name="email" type="email" placeholder="Gmail naslov" autocomplete="off">
+        <input name="telefon" type="tel" inputmode="tel" placeholder="Telefon (neobvezno), npr. 041 123 456" autocomplete="off">
         <button class="gumb gumb-glavni" type="submit">Dodaj igralca</button>
         <p class="napaka" id="adminNapaka"></p>
       </form>
@@ -321,6 +399,7 @@ function htmlIgralci() {
           <form class="uredi-obrazec" data-email="${i.email}">
             <input id="uredi-ime" name="ime" value="${varno(i.ime)}" placeholder="Ime in priimek" autocomplete="off">
             <input id="uredi-email" name="email" type="email" value="${varno(i.email)}" placeholder="Gmail naslov" autocomplete="off">
+            <input id="uredi-telefon" name="telefon" type="tel" inputmode="tel" value="${varno(s.telefoni[i.email] || '')}" placeholder="Telefon, npr. 041 123 456" autocomplete="off">
             <div class="uredi-gumbi">
               <button class="gumb-majhen" type="submit">Shrani</button>
               <button class="gumb-majhen sekundarni" type="button" data-akcija="prekliciUrejanje">Prekliči</button>
@@ -333,6 +412,7 @@ function htmlIgralci() {
           <div class="igralec-info">
             <div class="igralec-ime">${varno(i.ime)}${i.vloga === 'admin' ? '<span class="oznaka oznaka-admin">admin</span>' : ''}</div>
             <div class="igralec-status">${varno(i.email)}</div>
+            <div class="igralec-status">${s.telefoni[i.email] ? '📱 ' + varno(s.telefoni[i.email]) : '<span class="brez-tel">ni telefona</span>'}</div>
           </div>
           <div class="admin-gumbi">
             <button class="gumb-majhen sekundarni" data-akcija="urediIgralca" data-email="${i.email}">Uredi</button>
@@ -390,6 +470,18 @@ app.addEventListener('click', async (e) => {
     } else if (akcija === 'brisiZamenjavo') {
       if (!confirm('Odstranim zamenjavo?')) return
       await updateDoc(ref(email), { namestnik: '', ...zdaj })
+    } else if (akcija === 'sms') {
+      const besedilo = app.querySelector('#sms-besedilo').value.trim()
+      const seznam = el.dataset.komu === 'vsi'
+        ? s.igralci
+        : s.igralci.filter(i => !s.prisotnost[i.email])
+      const stevilke = seznam.map(i => s.telefoni[i.email]).filter(Boolean)
+      if (!stevilke.length) return
+      window.location.href = smsPovezava(stevilke, besedilo)
+    } else if (akcija === 'shraniBesedilo') {
+      s.smsBesedilo = app.querySelector('#sms-besedilo').value.trim()
+      await setDoc(doc(db, 'nastavitve', 'obvestila'), { smsBesedilo: s.smsBesedilo }, { merge: true })
+      alert('Besedilo shranjeno.')
     } else if (akcija === 'urediIgralca') {
       s.urejam = email
       render()
@@ -430,6 +522,7 @@ app.addEventListener('submit', async (e) => {
         return
       }
       const igr = s.vsiIgralci.find(i => i.email === star)
+      const telefon = urediTelefon(f.telefon.value)
       if (email === star) {
         await updateDoc(doc(db, 'igralci', star), { ime })
       } else {
@@ -448,8 +541,13 @@ app.addEventListener('submit', async (e) => {
           await setDoc(doc(db, 'termini', s.id, 'prisotnost', email), p)
           await deleteDoc(doc(db, 'termini', s.id, 'prisotnost', star))
         }
+        if (s.telefoni[star]) {
+          await deleteDoc(doc(db, 'telefoni', star))
+          delete s.telefoni[star]
+        }
         await deleteDoc(doc(db, 'igralci', star))
       }
+      await shraniTelefon(email, telefon)
       s.urejam = null
       await naloziIgralce()
       render()
@@ -461,6 +559,7 @@ app.addEventListener('submit', async (e) => {
         return
       }
       await setDoc(doc(db, 'igralci', email), { ime, vloga: 'igralec', aktiven: true })
+      await shraniTelefon(email, urediTelefon(f.telefon.value))
       await naloziIgralce()
       render()
     }
