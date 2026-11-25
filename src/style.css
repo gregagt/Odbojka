@@ -468,6 +468,8 @@ textarea.sms-besedilo:focus { border-color: var(--poudarek); box-shadow: 0 0 0 3
 .sms-gumbi { display: grid; gap: 8px; margin-top: 12px; }
 .sms-gumbi .povezava { justify-self: start; margin-top: 2px; }
 .gumb:disabled { opacity: 0.4; cursor: default; }
+a.gumb { display: block; text-align: center; text-decoration: none; }
+.onemogocen { opacity: 0.4; pointer-events: none; }
 .brez-tel { color: #66728a; font-style: italic; }
 .polna-sirina { width: 100%; margin-top: 12px; }
 .opozorilo {

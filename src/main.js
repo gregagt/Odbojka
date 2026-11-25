@@ -173,6 +173,12 @@ async function shraniTelefon(email, telefon) {
   s.telefoni[email] = telefon
 }
 
+function smsHref(komu) {
+  const seznam = komu === 'vsi' ? s.igralci : s.igralci.filter(i => !s.prisotnost[i.email])
+  const stevilke = seznam.map(i => s.telefoni[i.email]).filter(Boolean)
+  return stevilke.length ? smsPovezava(stevilke, s.smsBesedilo) : '#'
+}
+
 function smsPovezava(stevilke, besedilo) {
   const telo = encodeURIComponent(besedilo)
   const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -361,12 +367,12 @@ function htmlObvestila() {
       <h2>SMS opomnik</h2>
       <textarea id="sms-besedilo" class="sms-besedilo" rows="4">${varno(s.smsBesedilo)}</textarea>
       <div class="sms-gumbi">
-        <button class="gumb gumb-glavni" data-akcija="sms" data-komu="neodgovorjeni" ${nNeodg ? '' : 'disabled'}>
+        <a class="gumb gumb-glavni sms-gumb ${nNeodg ? '' : 'onemogocen'}" data-komu="neodgovorjeni" href="${smsHref('neodgovorjeni')}">
           📱 SMS neprijavljenim (${nNeodg})
-        </button>
-        <button class="gumb gumb-sekundarni" data-akcija="sms" data-komu="vsi" ${nVsi ? '' : 'disabled'}>
+        </a>
+        <a class="gumb gumb-sekundarni sms-gumb ${nVsi ? '' : 'onemogocen'}" data-komu="vsi" href="${smsHref('vsi')}">
           📱 SMS vsem (${nVsi})
-        </button>
+        </a>
         <button class="povezava" data-akcija="shraniBesedilo">Shrani besedilo kot privzeto</button>
       </div>
       <p class="opomba">Gumb odpre aplikacijo za SMS na tvojem telefonu z vsemi prejemniki in besedilom. Pošlješ sam. Deluje samo na telefonu.</p>
@@ -470,14 +476,6 @@ app.addEventListener('click', async (e) => {
     } else if (akcija === 'brisiZamenjavo') {
       if (!confirm('Odstranim zamenjavo?')) return
       await updateDoc(ref(email), { namestnik: '', ...zdaj })
-    } else if (akcija === 'sms') {
-      const besedilo = app.querySelector('#sms-besedilo').value.trim()
-      const seznam = el.dataset.komu === 'vsi'
-        ? s.igralci
-        : s.igralci.filter(i => !s.prisotnost[i.email])
-      const stevilke = seznam.map(i => s.telefoni[i.email]).filter(Boolean)
-      if (!stevilke.length) return
-      window.location.href = smsPovezava(stevilke, besedilo)
     } else if (akcija === 'shraniBesedilo') {
       s.smsBesedilo = app.querySelector('#sms-besedilo').value.trim()
       await setDoc(doc(db, 'nastavitve', 'obvestila'), { smsBesedilo: s.smsBesedilo }, { merge: true })
@@ -497,6 +495,13 @@ app.addEventListener('click', async (e) => {
   } catch (napaka) {
     alert('Napaka: ' + napaka.code)
   }
+})
+
+// sproti posodobi SMS povezave, ko se spreminja besedilo
+app.addEventListener('input', (e) => {
+  if (e.target.id !== 'sms-besedilo') return
+  s.smsBesedilo = e.target.value
+  app.querySelectorAll('.sms-gumb').forEach(a => { a.href = smsHref(a.dataset.komu) })
 })
 
 app.addEventListener('submit', async (e) => {
