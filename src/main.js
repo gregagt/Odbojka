@@ -2,7 +2,7 @@ import './style.css'
 import { auth, db } from './firebase.js'
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
 import {
-  doc, getDoc, getDocs, setDoc, updateDoc, collection, onSnapshot
+  doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, onSnapshot
 } from 'firebase/firestore'
 
 const app = document.querySelector('#app')
@@ -22,7 +22,8 @@ const s = {
   vsiIgralci: [],         // vsi (za admina)
   prisotnost: {},
   nalagam: true,
-  odprtaZamenjava: null   // email igralca, kjer je odprt vnos zamenjave
+  odprtaZamenjava: null,  // email igralca, kjer je odprt vnos zamenjave
+  urejam: null            // email igralca, ki ga admin ureja
 }
 
 // ---------- POMOŽNO ----------
@@ -49,6 +50,14 @@ function datumId(d) {
 function lepDatum(d) {
   const t = d.toLocaleDateString('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' })
   return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+function kratekCas(cas) {
+  const d = cas?.toDate ? cas.toDate() : null
+  if (!d) return ''
+  const dan = d.toLocaleDateString('sl-SI', { weekday: 'short' })
+  const ura = d.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' })
+  return `${dan} ${ura}`
 }
 
 function inicialke(ime) {
@@ -250,12 +259,21 @@ function htmlIgralec(i) {
   else if (namestnik) status = `Namesto pride <b>${varno(namestnik)}</b>`
   else status = 'Ne pride · iščemo zamenjavo'
 
-  let desno
-  if (pride) desno = '<span class="pika"></span>'
-  else if (!nePride) desno = '<span class="pika pika-brez"></span>'
-  else if (namestnik) desno = `<button class="gumb-majhen sekundarni" data-akcija="brisiZamenjavo" data-email="${i.email}">Odstrani</button>`
-  else if (s.odprtaZamenjava === i.email) desno = ''
-  else desno = `<button class="gumb-majhen" data-akcija="odpriZamenjavo" data-email="${i.email}">+ Zamenjava</button>`
+  // kdo je potrdil
+  let vpis = ''
+  if (p?.vpisal) {
+    const kdo = p.vpisal === i.ime ? 'sam' : varno(p.vpisal)
+    const cas = kratekCas(p.cas)
+    vpis = `<div class="igralec-vpis">potrdil: ${kdo}${cas ? ' · ' + cas : ''}</div>`
+  }
+
+  // zamenjava
+  let zamenjava = ''
+  if (nePride && namestnik) {
+    zamenjava = `<button class="povezava" data-akcija="brisiZamenjavo" data-email="${i.email}">odstrani zamenjavo</button>`
+  } else if (nePride && s.odprtaZamenjava !== i.email) {
+    zamenjava = `<button class="povezava povezava-poudarek" data-akcija="odpriZamenjavo" data-email="${i.email}">+ vpiši zamenjavo</button>`
+  }
 
   const obrazec = s.odprtaZamenjava === i.email ? `
     <form class="zamenjava-obrazec" data-email="${i.email}">
@@ -270,8 +288,13 @@ function htmlIgralec(i) {
       <div class="igralec-info">
         <div class="igralec-ime">${varno(i.ime)}${jeJaz ? '<span class="oznaka">ti</span>' : ''}</div>
         <div class="igralec-status">${status}</div>
+        ${vpis}
+        ${zamenjava}
       </div>
-      ${desno}
+      <div class="mini-preklop">
+        <button class="${pride ? 'izbran da' : ''}" data-akcija="pridem" data-email="${i.email}" title="Pride">✓</button>
+        <button class="${nePride ? 'izbran ne' : ''}" data-akcija="nepridem" data-email="${i.email}" title="Ne pride">✕</button>
+      </div>
       ${obrazec}
     </li>
   `
@@ -292,16 +315,29 @@ function htmlIgralci() {
 
     <h2 class="naslov-sekcije">Vsi igralci · ${aktivnih} aktivnih</h2>
     <ul class="seznam">
-      ${s.vsiIgralci.map(i => `
+      ${s.vsiIgralci.map(i => s.urejam === i.email ? `
+        <li class="igralec urejanje">
+          ${avatar(i.ime)}
+          <form class="uredi-obrazec" data-email="${i.email}">
+            <input id="uredi-ime" name="ime" value="${varno(i.ime)}" placeholder="Ime in priimek" autocomplete="off">
+            <input id="uredi-email" name="email" type="email" value="${varno(i.email)}" placeholder="Gmail naslov" autocomplete="off">
+            <div class="uredi-gumbi">
+              <button class="gumb-majhen" type="submit">Shrani</button>
+              <button class="gumb-majhen sekundarni" type="button" data-akcija="prekliciUrejanje">Prekliči</button>
+            </div>
+            <p class="napaka" id="urediNapaka"></p>
+          </form>
+        </li>` : `
         <li class="igralec ${i.aktiven ? '' : 'neaktiven'}">
           ${avatar(i.ime)}
           <div class="igralec-info">
-            <div class="igralec-ime">${varno(i.ime)}</div>
+            <div class="igralec-ime">${varno(i.ime)}${i.vloga === 'admin' ? '<span class="oznaka oznaka-admin">admin</span>' : ''}</div>
             <div class="igralec-status">${varno(i.email)}</div>
           </div>
-          ${i.vloga === 'admin'
-            ? '<span class="oznaka oznaka-admin">admin</span>'
-            : `<button class="gumb-majhen sekundarni" data-akcija="preklopiAktiven" data-email="${i.email}">${i.aktiven ? 'Izklopi' : 'Vklopi'}</button>`}
+          <div class="admin-gumbi">
+            <button class="gumb-majhen sekundarni" data-akcija="urediIgralca" data-email="${i.email}">Uredi</button>
+            ${i.vloga === 'admin' ? '' : `<button class="gumb-majhen sekundarni" data-akcija="preklopiAktiven" data-email="${i.email}">${i.aktiven ? 'Izklopi' : 'Vklopi'}</button>`}
+          </div>
         </li>`).join('')}
     </ul>
   `
@@ -322,14 +358,29 @@ app.addEventListener('click', async (e) => {
     } else if (akcija === 'pogled') {
       s.pogled = el.dataset.pogled
       render()
-    } else if (akcija === 'nepridem') {
-      if (s.prisotnost[s.jaz.email]?.status === 'ne_pride') return
-      await setDoc(ref(s.jaz.email), { status: 'ne_pride', namestnik: '', ...zdaj })
-    } else if (akcija === 'pridem') {
-      const moj = s.prisotnost[s.jaz.email]
-      if (moj?.status === 'pride') return
-      if (moj?.namestnik && !confirm(`Zamenjava ${moj.namestnik} bo odstranjena. Nadaljujem?`)) return
-      await setDoc(ref(s.jaz.email), { status: 'pride', namestnik: '', ...zdaj })
+    } else if (akcija === 'nepridem' || akcija === 'pridem') {
+      const kdo = email || s.jaz.email
+      const nov = akcija === 'pridem' ? 'pride' : 'ne_pride'
+      const zdajsnji = s.prisotnost[kdo]
+      if (zdajsnji?.status === nov) {
+        // ponoven klik na izbran gumb: odstrani odgovor
+        if (zdajsnji.namestnik && !confirm(`Zamenjava ${zdajsnji.namestnik} bo odstranjena. Nadaljujem?`)) return
+        await deleteDoc(ref(kdo))
+        if (s.odprtaZamenjava === kdo) {
+          s.odprtaZamenjava = null
+          render()
+        }
+        return
+      }
+      const igr = s.igralci.find(i => i.email === kdo)
+      if (kdo !== s.jaz.email && zdajsnji && zdajsnji.vpisal === igr?.ime &&
+          !confirm(`${igr.ime} je sam izbral drugače. Vseeno spremenim?`)) return
+      if (zdajsnji?.namestnik && !confirm(`Zamenjava ${zdajsnji.namestnik} bo odstranjena. Nadaljujem?`)) return
+      await setDoc(ref(kdo), { status: nov, namestnik: '', ...zdaj })
+      if (nov === 'ne_pride' && kdo !== s.jaz.email) {
+        s.odprtaZamenjava = kdo
+        render()
+      }
     } else if (akcija === 'odpriZamenjavo') {
       s.odprtaZamenjava = email
       render()
@@ -339,6 +390,12 @@ app.addEventListener('click', async (e) => {
     } else if (akcija === 'brisiZamenjavo') {
       if (!confirm('Odstranim zamenjavo?')) return
       await updateDoc(ref(email), { namestnik: '', ...zdaj })
+    } else if (akcija === 'urediIgralca') {
+      s.urejam = email
+      render()
+    } else if (akcija === 'prekliciUrejanje') {
+      s.urejam = null
+      render()
     } else if (akcija === 'preklopiAktiven') {
       const igr = s.vsiIgralci.find(i => i.email === email)
       await updateDoc(doc(db, 'igralci', email), { aktiven: !igr.aktiven })
@@ -363,6 +420,39 @@ app.addEventListener('submit', async (e) => {
       await updateDoc(doc(db, 'termini', s.id, 'prisotnost', f.dataset.email), {
         namestnik: ime, vpisal: s.jaz.ime, cas: new Date()
       })
+    } else if (f.classList.contains('uredi-obrazec')) {
+      const star = f.dataset.email
+      const ime = f.ime.value.trim()
+      const email = f.email.value.trim().toLowerCase()
+      const napaka = f.querySelector('#urediNapaka')
+      if (!ime || !email.includes('@')) {
+        napaka.textContent = 'Vpiši ime in veljaven e-naslov.'
+        return
+      }
+      const igr = s.vsiIgralci.find(i => i.email === star)
+      if (email === star) {
+        await updateDoc(doc(db, 'igralci', star), { ime })
+      } else {
+        if (s.vsiIgralci.some(i => i.email === email)) {
+          napaka.textContent = 'Igralec s tem e-naslovom že obstaja.'
+          return
+        }
+        if (star === s.jaz.email) {
+          napaka.textContent = 'Svojega e-naslova ne moreš spremeniti tukaj.'
+          return
+        }
+        // e-naslov je ID zapisa: ustvari novega in izbriši starega
+        await setDoc(doc(db, 'igralci', email), { ime, vloga: igr.vloga, aktiven: igr.aktiven })
+        const p = s.prisotnost[star]
+        if (p) {
+          await setDoc(doc(db, 'termini', s.id, 'prisotnost', email), p)
+          await deleteDoc(doc(db, 'termini', s.id, 'prisotnost', star))
+        }
+        await deleteDoc(doc(db, 'igralci', star))
+      }
+      s.urejam = null
+      await naloziIgralce()
+      render()
     } else if (f.id === 'dodajObrazec') {
       const ime = f.ime.value.trim()
       const email = f.email.value.trim().toLowerCase()

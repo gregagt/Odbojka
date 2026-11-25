@@ -293,6 +293,38 @@ input { font: inherit; }
 }
 .igralec.manjka .igralec-status { color: var(--rdeca); }
 .igralec.neaktiven { opacity: 0.45; }
+.igralec-vpis { font-size: 11px; color: #66728a; margin-top: 2px; }
+.povezava {
+  background: none;
+  padding: 0;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--siv);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.povezava-poudarek { color: var(--poudarek); }
+
+.mini-preklop { display: flex; gap: 4px; }
+.mini-preklop button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #66728a;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid var(--rob);
+}
+.mini-preklop .izbran.da { color: var(--zelena); background: rgba(47, 212, 122, 0.12); border-color: var(--zelena); }
+.mini-preklop .izbran.ne { color: var(--rdeca); background: rgba(255, 99, 99, 0.1); border-color: var(--rdeca); }
+
+.admin-gumbi { display: flex; gap: 6px; }
+.igralec.urejanje { align-items: start; }
+.uredi-obrazec { grid-column: 2 / -1; display: grid; gap: 8px; }
+.uredi-gumbi { display: flex; gap: 8px; }
+
 .igralec.brez .igralec-status { color: var(--siv); font-style: italic; }
 .igralec.brez .avatar { filter: grayscale(0.7) brightness(0.8); }
 
@@ -321,7 +353,7 @@ input { font: inherit; }
   color: #1a1200;
   background: var(--poudarek);
 }
-.oznaka-admin { color: #04203a; background: var(--modra); margin: 0; }
+.oznaka-admin { color: #04203a; background: var(--modra); }
 
 /* ---------- Zamenjava ---------- */
 .zamenjava-obrazec {
